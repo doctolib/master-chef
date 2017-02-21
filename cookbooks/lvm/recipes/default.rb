@@ -28,7 +28,7 @@ if node.has_key?(:raid)
 end
 
 node[:lvm].each do |group, lvm|
-  next if status.match(/#{group} Cwi/)
+  next if %x{lvs #{cache_volume} || true}.strip.match(/#{group} Cwi/
 
   lvm[:physical_volumes].each do |dev|
     lvm_physical_volume dev
