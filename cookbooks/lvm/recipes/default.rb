@@ -8,19 +8,18 @@ if node[:lvm][:fs_packages]
   end
 end
 
-if node[:lvm][:partitions]
-  node[:lvm][:partitions].each do |name, config|
+if node.has_key?(:partitions)
+  node[:partitions].each do |name, config|
     partition name do
       fs_type config[:fs_type]
     end
   end
 end
 
-if node[:lvm][:raid]
-
+if node.has_key?(:raid)
   package "mdadm"
 
-  node[:lvm][:raid].each do |name, config|
+  node[:raid].each do |name, config|
     raid name do
       disks config[:disks]
       level config[:level]
@@ -28,46 +27,42 @@ if node[:lvm][:raid]
   end
 end
 
-node[:lvm][:physical_volumes].each do |dev|
-  lvm_physical_volume dev
-end
+node[:lvm].each do |group, lvm|
+  next if status.match(/#{group} Cwi/)
 
-node[:lvm][:volume_groups].each do |name, pvs|
-  lvm_volume_group name do
-    physical_volumes pvs
+  lvm[:physical_volumes].each do |dev|
+    lvm_physical_volume dev
   end
-end
-
-node[:lvm][:logical_volumes].each do |name, lv|
-  lvm_logical_volume name do
-    volume_group lv[:volume_group]
-    size lv[:size]
-    fs_type lv[:fs_type] if lv[:fs_type]
+  
+  lvm_volume_group group do
+    physical_volumes lvm[:physical_volumes]
   end
-end
 
-node[:lvm][:lvm_cache].each do |name, lv|
-  lvm_cache name do
-    volume_group lv[:volume_group]
-    lv_meta lv[:lv_meta]
-    lv_cache lv[:lv_cache]
-    fast_disk lv[:fast_disk]
-    slow_disk lv[:slow_disk]
-    size lv[:size]
+  lvm[:logical_volumes].each do |name, lv|
+    lvm_logical_volume name do
+      volume_group group
+      size lv[:size]
+      fs_type lv[:fs_type] if lv[:fs_type]
+    end
   end
-end
+  
+  if lvm.has_key?(:cache)
+    include_recipe 'lvm::lvmcache'
 
-node[:lvm][:mount_existing_path].each do |device, config|
-  mount_existing_path device do
-    target config[:target]
-    fstype config[:fstype] if config[:fstype]
-    format true if config[:format]
-    impacted_services config[:impacted_services] if config[:impacted_services]
-    options config[:options] if config[:options]
+    status = %x{lvs #{cache_volume} || true}.strip
+    execute "link cache and metadata for #{lvm_cache_params[:name]}" do
+      command "lvconvert -y --type cache-pool --cachemode writeback --chunksize 64k --poolmetadata #{group}/metadata #{group}/cache"
+    end
   end
+
+  execute "link cache to main volume for #{lvm[:cache][:storage]}" do
+    command "lvconvert --type cache --cachepool #{group}/cache #{group}/#{lvm[:cache][:storage]}"
+    not_if "lvs -o pool_lv /dev/#{group}/#{lvm[:cache][:storage]} | grep cache"
+  end
+  
 end
 
-node[:lvm][:mount_new_path].each do |device, config|
+node[:mount_new_path].each do |device, config|
   mount_new_path device do
     target config[:target]
     fstype config[:fstype] if config[:fstype]
