@@ -28,8 +28,6 @@ if node.has_key?(:raid)
 end
 
 node[:lvm].each do |group, lvm|
-  next if %x{lvs #{cache_volume} || true}.strip.match(/#{group} Cwi/
-
   lvm[:physical_volumes].each do |dev|
     lvm_physical_volume dev
   end
@@ -42,24 +40,23 @@ node[:lvm].each do |group, lvm|
     lvm_logical_volume name do
       volume_group group
       size lv[:size]
+      disk lv[:disks].join(' ') if lv.has_key?(:disks)
       fs_type lv[:fs_type] if lv[:fs_type]
     end
   end
   
-  if lvm.has_key?(:cache)
+  if lvm.has_key?(:cache) and not %x{lvs /dev/#{group}/cache || true}.strip.match(/#{group} Cwi/)
     include_recipe 'lvm::lvmcache'
 
-    status = %x{lvs #{cache_volume} || true}.strip
-    execute "link cache and metadata for #{lvm_cache_params[:name]}" do
+    execute "link cache and metadata for #{lvm[:cache][:storage]}}" do
       command "lvconvert -y --type cache-pool --cachemode writeback --chunksize 64k --poolmetadata #{group}/metadata #{group}/cache"
+
+    end
+    execute "link cache to main volume for #{lvm[:cache][:storage]}" do
+      command "lvconvert --type cache --cachepool #{group}/cache #{group}/#{lvm[:cache][:storage]}"
+      not_if "lvs -o pool_lv /dev/#{group}/#{lvm[:cache][:storage]} | grep cache"
     end
   end
-
-  execute "link cache to main volume for #{lvm[:cache][:storage]}" do
-    command "lvconvert --type cache --cachepool #{group}/cache #{group}/#{lvm[:cache][:storage]}"
-    not_if "lvs -o pool_lv /dev/#{group}/#{lvm[:cache][:storage]} | grep cache"
-  end
-  
 end
 
 node[:mount_new_path].each do |device, config|
