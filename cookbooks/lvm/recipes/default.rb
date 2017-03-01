@@ -70,3 +70,13 @@ node[:mount_new_path].each do |device, config|
     mode config[:mode] if config[:mode]
   end
 end
+
+node[:mount_existing_path].each do |device, config|
+  mount_existing_path device do
+    target config[:target]
+    fstype config[:fstype] if config[:fstype]
+    format true if config[:format]
+    impacted_services config[:impacted_services] if config[:impacted_services]
+    options config[:options] if config[:options]
+  end
+end
