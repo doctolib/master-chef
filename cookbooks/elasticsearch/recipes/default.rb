@@ -85,15 +85,13 @@ node.elasticsearch.plugins.each do |k, v|
 end
 
 if node.logrotate[:auto_deploy]
-
-  logrotate_file "elasticsearch" do
+  logrotate_file 'elasticsearch' do
     files [
-      "/var/log/elasticsearch/#{node.elasticsearch.cluster_name}.log",
-      "/var/log/elasticsearch/#{node.elasticsearch.cluster_name}_index_indexing_slowlog.log",
-      "/var/log/elasticsearch/#{node.elasticsearch.cluster_name}_index_search_slowlog.log",
-      "/var/log/elasticsearch/#{node.elasticsearch.cluster_name}_deprecation.log",
+      '/var/log/elasticsearch/*.log'
     ]
-    variables :copytruncate => true, :delaycompress => true, :user => "elasticsearch", :rotate => 7
+    variables copytruncate: true,
+              delaycompress: true,
+              user: 'elasticsearch',
+              rotate: 7
   end
-
 end
