@@ -148,8 +148,8 @@ ssl_verify_mode :verify_peer
 verify_api_cert true
 
 <% if @http_proxy.include?('vip-proxyweb') %>
-http_proxy "http://<%= @http_proxy %>"
-https_proxy "http://<%= @https_proxy %>"
+http_proxy "http://#{@http_proxy}"
+https_proxy "http://#{@https_proxy}"
 no_proxy ".doctolib,127.0.0.1,localhost"
 <% end %>
 
